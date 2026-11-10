@@ -1,0 +1,106 @@
+spring:
+  application:
+    name: pooled-restclient
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+
+# ---------------------------------------------------------------------------
+# 4 connection pools, shared by groups of services.
+# Pool-level timeouts are the DEFAULTS for every service in the group.
+# Services can override connect / read / connection-request timeouts.
+# ---------------------------------------------------------------------------
+http-client:
+  pools:
+    payments:
+      max-total: 200
+      max-per-route: 50
+      connect-timeout: 2s
+      socket-timeout: 30s            # keep >= largest read-timeout of any service in this pool
+      response-timeout: 5s           # default read timeout
+      connection-request-timeout: 1s # max wait for a free connection from the pool
+      time-to-live: 5m
+      idle-eviction: 30s
+      validate-after-inactivity: 2s
+
+    partners:
+      max-total: 100
+      max-per-route: 20
+      connect-timeout: 3s
+      socket-timeout: 30s
+      response-timeout: 10s
+      connection-request-timeout: 2s
+      time-to-live: 5m
+      idle-eviction: 30s
+      validate-after-inactivity: 2s
+
+    internal:
+      max-total: 150
+      max-per-route: 30
+      connect-timeout: 1s
+      socket-timeout: 10s
+      response-timeout: 3s
+      connection-request-timeout: 500ms
+      time-to-live: 10m
+      idle-eviction: 60s
+      validate-after-inactivity: 2s
+
+    slow-batch:
+      max-total: 40
+      max-per-route: 10
+      connect-timeout: 5s
+      socket-timeout: 120s
+      response-timeout: 60s
+      connection-request-timeout: 5s
+      time-to-live: 5m
+      idle-eviction: 30s
+      validate-after-inactivity: 2s
+
+  services:
+    # ---- payments pool ----
+    stripe:
+      pool: payments
+      base-url: https://api.stripe.com
+      connect-timeout: 2s
+      read-timeout: 5s
+    adyen:
+      pool: payments
+      base-url: https://checkout-test.adyen.com
+      connect-timeout: 1s
+      read-timeout: 15s
+    paypal:
+      pool: payments
+      base-url: https://api-m.sandbox.paypal.com
+      # no overrides -> uses payments pool defaults (connect 2s, read 5s)
+
+    # ---- partners pool ----
+    partner-x:
+      pool: partners
+      base-url: https://api.partnerx.com
+      read-timeout: 20s
+    partner-y:
+      pool: partners
+      base-url: https://api.partnery.com
+      connect-timeout: 1s
+      read-timeout: 4s
+      connection-request-timeout: 500ms
+
+    # ---- internal pool ----
+    inventory:
+      pool: internal
+      base-url: http://inventory.internal:8080
+    pricing:
+      pool: internal
+      base-url: http://pricing.internal:8080
+      read-timeout: 1500ms
+
+    # ---- slow-batch pool ----
+    reporting:
+      pool: slow-batch
+      base-url: https://reports.example.com
+      read-timeout: 90s
+
+    # ... add the remaining services the same way
